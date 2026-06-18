@@ -8,7 +8,7 @@
  *   npm install @phala/dcap-qvl
  *
  * Usage:
- *   import { createDcapVerifier } from 'venice-e2ee/dcap';
+ *   import { createDcapVerifier } from '@axlabs/venice-e2ee/dcap';
  *   const e2ee = createVeniceE2EE({ apiKey, dcapVerifier: createDcapVerifier() });
  */
 import type { DcapVerifier, DcapVerifyResult } from './types.js';

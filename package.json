@@ -1,29 +1,37 @@
 {
-  "name": "venice-e2ee",
+  "name": "@axlabs/venice-e2ee",
   "version": "0.1.0",
-  "description": "End-to-end encryption for Venice AI's TEE-backed inference",
+  "description": "End-to-end encryption for Venice AI's TEE-backed inference (ECDH secp256k1 + HKDF-SHA256 + AES-256-GCM)",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./dcap": {
-      "import": "./dist/dcap.js",
-      "types": "./dist/dcap.d.ts"
+      "types": "./dist/dcap.d.ts",
+      "import": "./dist/dcap.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "ARCHITECTURE.md",
+    "SECURITY.md",
+    "LICENSE"
   ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    
     "build": "tsc",
     "build:browser": "esbuild src/index.ts --bundle --format=esm --outfile=dist/venice-e2ee.browser.js --target=es2022",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run test && npm run build"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
@@ -38,25 +46,37 @@
     }
   },
   "devDependencies": {
+    "@phala/dcap-qvl": "^0.3.9",
     "esbuild": "^0.27.4",
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
   },
+  "author": "AxLabs (https://axlabs.com)",
+  "license": "GPL-3.0-only",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/elkimek/venice-e2ee.git"
+    "url": "git+https://github.com/AxLabs/venice-e2ee.git"
   },
   "bugs": {
-    "url": "https://github.com/elkimek/venice-e2ee/issues"
+    "url": "https://github.com/AxLabs/venice-e2ee/issues"
   },
-  "homepage": "https://github.com/elkimek/venice-e2ee#readme",
-  "license": "GPL-3.0-only",
+  "homepage": "https://github.com/AxLabs/venice-e2ee#readme",
   "keywords": [
     "venice",
+    "venice-ai",
     "e2ee",
+    "end-to-end-encryption",
     "encryption",
     "tee",
+    "intel-tdx",
+    "attestation",
     "secp256k1",
-    "aes-gcm"
+    "ecdh",
+    "hkdf",
+    "aes-gcm",
+    "axlabs"
   ]
 }

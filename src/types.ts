@@ -9,7 +9,7 @@ export interface DcapVerifyResult {
 /**
  * Function that performs full TDX DCAP quote verification.
  * Accepts raw quote bytes and returns verification result.
- * Use `createDcapVerifier()` from `venice-e2ee/dcap` for the default implementation.
+ * Use `createDcapVerifier()` from `@axlabs/venice-e2ee/dcap` for the default implementation.
  */
 export type DcapVerifier = (quoteBytes: Uint8Array) => Promise<DcapVerifyResult>;
 
@@ -24,7 +24,7 @@ export interface VeniceE2EEOptions {
    * When provided, runs alongside v1 binding checks for complete attestation.
    *
    * ```ts
-   * import { createDcapVerifier } from 'venice-e2ee/dcap';
+   * import { createDcapVerifier } from '@axlabs/venice-e2ee/dcap';
    * const e2ee = createVeniceE2EE({ apiKey, dcapVerifier: createDcapVerifier() });
    * ```
    */

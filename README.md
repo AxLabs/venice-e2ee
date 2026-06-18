@@ -1,18 +1,19 @@
-# venice-e2ee
+# @axlabs/venice-e2ee
 
-End-to-end encryption for [Venice AI](https://venice.ai)'s TEE-backed inference. Prompts are encrypted client-side and only decrypted inside Intel TDX Trusted Execution Environments — Venice never sees plaintext.
+[![npm](https://img.shields.io/npm/v/@axlabs/venice-e2ee.svg)](https://www.npmjs.com/package/@axlabs/venice-e2ee)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 
-> **Note:** This library uses standard cryptographic primitives (ECDH, HKDF, AES-256-GCM) via audited implementations (`@noble/secp256k1`, Web Crypto API). No custom cryptography — just Venice's E2EE protocol extracted into a reusable package. Vibecoded.
+End-to-end encryption for [Venice AI](https://venice.ai)'s TEE-backed inference, maintained by [AxLabs](https://axlabs.com). Prompts are encrypted client-side and only decrypted inside Intel TDX Trusted Execution Environments — Venice never sees plaintext.
+
+> **Note:** This library uses standard cryptographic primitives (ECDH, HKDF, AES-256-GCM) via audited implementations (`@noble/secp256k1`, Web Crypto API). It implements no custom cryptography — it packages Venice's E2EE protocol into a reusable library. Review [SECURITY.md](SECURITY.md) for the trust model and known limitations before relying on it.
 
 **Protocol:** ECDH (secp256k1) key exchange → HKDF-SHA256 key derivation → AES-256-GCM encryption
 
 ## Install
 
 ```bash
-npm install venice-e2ee
+npm install @axlabs/venice-e2ee
 ```
-
-> **Python:** See [venice-e2ee-python](https://github.com/elkimek/venice-e2ee-python) for the Python port.
 
 Or use the browser bundle directly:
 
@@ -25,7 +26,7 @@ Or use the browser bundle directly:
 ## Usage
 
 ```js
-import { createVeniceE2EE } from 'venice-e2ee';
+import { createVeniceE2EE } from '@axlabs/venice-e2ee';
 
 const e2ee = createVeniceE2EE({ apiKey: 'your-venice-api-key' });
 
@@ -108,8 +109,8 @@ npm install @phala/dcap-qvl
 ```
 
 ```js
-import { createVeniceE2EE } from 'venice-e2ee';
-import { createDcapVerifier } from 'venice-e2ee/dcap';
+import { createVeniceE2EE } from '@axlabs/venice-e2ee';
+import { createDcapVerifier } from '@axlabs/venice-e2ee/dcap';
 
 const e2ee = createVeniceE2EE({
   apiKey: 'your-venice-api-key',
@@ -138,7 +139,7 @@ import {
   deriveEthAddress,     // secp256k1 pubkey → Ethereum address
   toHex,
   fromHex,
-} from 'venice-e2ee';
+} from '@axlabs/venice-e2ee';
 ```
 
 ## How it works
@@ -188,9 +189,14 @@ Each response chunk uses a fresh server ephemeral key, so every chunk requires i
 - NVIDIA GPU attestation
 - TEE code measurements (Venice doesn't publish expected values yet)
 
+For the full trust model and known limitations, see [SECURITY.md](SECURITY.md). For the verification design and module layout, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Development
 
+This repo pins its Node version in [`.nvmrc`](.nvmrc). If you use [nvm](https://github.com/nvm-sh/nvm), run `nvm use` first:
+
 ```bash
+nvm use               # match the pinned Node version
 npm install
 npm test              # unit + integration tests
 npm run build         # TypeScript → dist/
@@ -201,9 +207,12 @@ Set `VENICE_API_KEY` in `.env` to run integration tests against the live API.
 
 ## Acknowledgments
 
+- This library was forked from [`elkimek/venice-e2ee`](https://github.com/elkimek/venice-e2ee) at commit [`758ce76`](https://github.com/elkimek/venice-e2ee/commit/758ce76df5a688a9b0a4f5553be3e73ad4a4aa64) and is now maintained by [AxLabs](https://axlabs.com).
 - [Phala Network](https://phala.network/) — TDX DCAP quote verification is powered by [`@phala/dcap-qvl`](https://github.com/Phala-Network/dcap-qvl) (Apache-2.0), a pure JavaScript implementation of the Intel DCAP Quote Verification Library.
 - [Paul Miller](https://paulmillr.com/) — ECDH key exchange uses [`@noble/secp256k1`](https://github.com/paulmillr/noble-secp256k1) and key derivation uses [`@noble/hashes`](https://github.com/paulmillr/noble-hashes) (MIT), audited noble cryptography libraries.
 
 ## License
 
 GPL-3.0 — see [LICENSE](LICENSE)
+
+Copyright © AxLabs.
