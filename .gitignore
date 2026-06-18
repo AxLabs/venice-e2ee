@@ -1,2 +1,9 @@
 node_modules/
 .env
+
+# Build output
+dist/
+
+# Logs and OS files
+*.log
+.DS_Store
