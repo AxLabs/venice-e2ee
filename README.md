@@ -205,6 +205,8 @@ npm run build:browser # single-file ESM bundle
 
 Set `VENICE_API_KEY` in `.env` to run integration tests against the live API.
 
+See [DEVELOPMENT.md](DEVELOPMENT.md) for CI details and the npm release process.
+
 ## Acknowledgments
 
 - This library was forked from [`elkimek/venice-e2ee`](https://github.com/elkimek/venice-e2ee) at commit [`758ce76`](https://github.com/elkimek/venice-e2ee/commit/758ce76df5a688a9b0a4f5553be3e73ad4a4aa64) and is now maintained by [AxLabs](https://axlabs.com).
