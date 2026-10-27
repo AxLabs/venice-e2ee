@@ -28,6 +28,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "build:browser": "esbuild src/index.ts --bundle --format=esm --outfile=dist/venice-e2ee.browser.js --target=es2022",
     "test": "vitest run",
     "test:watch": "vitest",

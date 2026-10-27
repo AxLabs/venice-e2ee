@@ -30,7 +30,7 @@ derived and decrypted independently.
 | `crypto.ts` | Key generation, ECDH + HKDF key derivation, AES-256-GCM encrypt/decrypt, hex helpers |
 | `attestation.ts` | TDX quote parsing and binding checks (nonce, signing-key address, debug-mode rejection, server cross-check) |
 | `dcap.ts` | Optional adapter for full DCAP quote verification via an injectable verifier |
-| `stream.ts` | Server-Sent Events parser that yields decrypted text chunks |
+| `stream.ts` | Server-Sent Events parser that yields decrypted text, tool-call deltas, and finish reasons |
 | `index.ts` | Public `createVeniceE2EE` factory, session lifecycle, and re-exports |
 | `types.ts` | Shared public types |
 
@@ -49,8 +49,8 @@ const { encryptedMessages, headers, veniceParameters } =
   await e2ee.encrypt(messages, session);
 
 // Decrypt a streaming response.
-for await (const text of e2ee.decryptStream(responseBody, session)) {
-  // ...
+for await (const event of e2ee.decryptStream(responseBody, session)) {
+  // event.kind is 'content' | 'tool_calls' | 'finish'
 }
 
 // Session management.
@@ -111,6 +111,6 @@ When a DCAP verifier is injected (`createVeniceE2EE({ dcapVerifier })`):
 
 ## Testing
 
-- Unit tests cover crypto round-trips, attestation binding checks, and SSE stream decryption.
+- Unit tests cover crypto round-trips, attestation binding checks, SSE stream decryption (including tool-call deltas), and tool-message encryption.
 - An integration test runs against the live attestation and chat endpoints when
   `VENICE_API_KEY` is set in the environment.

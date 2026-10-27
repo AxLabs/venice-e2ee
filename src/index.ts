@@ -13,11 +13,66 @@ import {
 import type {
   VeniceE2EEOptions,
   E2EESession,
+  E2EEMessage,
+  EncryptedMessage,
   EncryptedPayload,
+  ToolCall,
+  DecryptedStreamEvent,
 } from './types.js';
 
 const DEFAULT_BASE_URL = 'https://api.venice.ai';
 const DEFAULT_SESSION_TTL = 30 * 60 * 1000; // 30 minutes
+
+/** Venice rejects plaintext `user` and `system` content when E2EE headers are set. */
+const CIPHERTEXT_ROLES = new Set(['user', 'system']);
+
+async function encryptOne(msg: E2EEMessage, session: E2EESession): Promise<EncryptedMessage> {
+  const encrypted: EncryptedMessage = {
+    role: msg.role,
+    content: await encryptContent(msg.role, msg.content, session),
+  };
+
+  if (typeof msg.name === 'string') encrypted.name = msg.name;
+  if (typeof msg.tool_call_id === 'string') encrypted.tool_call_id = msg.tool_call_id;
+
+  const toolCalls = copyToolCalls(msg.tool_calls);
+  if (toolCalls) encrypted.tool_calls = toolCalls;
+
+  return encrypted;
+}
+
+/**
+ * Encrypt a non-empty body for every role so prompts and tool results stay
+ * confidential. `null` stays `null`. An empty string is ciphertext only for
+ * `user` and `system`; encrypting `""` on an assistant tool call makes the
+ * TEE treat that turn as text.
+ */
+async function encryptContent(
+  role: string,
+  content: string | null | undefined,
+  session: E2EESession
+): Promise<string | null> {
+  if (typeof content !== 'string') return null;
+  if (content.length === 0 && !CIPHERTEXT_ROLES.has(role)) return '';
+  return encryptMessage(session.aesKey, session.publicKey, content);
+}
+
+function copyToolCalls(toolCalls: ToolCall[] | undefined): ToolCall[] | undefined {
+  if (!Array.isArray(toolCalls)) return undefined;
+  return toolCalls.map((call) => {
+    const copy: ToolCall = {};
+    if (typeof call.index === 'number') copy.index = call.index;
+    if (typeof call.id === 'string') copy.id = call.id;
+    if (typeof call.type === 'string') copy.type = call.type;
+    if (call.function) {
+      const fn: NonNullable<ToolCall['function']> = {};
+      if (typeof call.function.name === 'string') fn.name = call.function.name;
+      if (typeof call.function.arguments === 'string') fn.arguments = call.function.arguments;
+      copy.function = fn;
+    }
+    return copy;
+  });
+}
 
 export function createVeniceE2EE(options: VeniceE2EEOptions) {
   const {
@@ -102,18 +157,11 @@ export function createVeniceE2EE(options: VeniceE2EEOptions) {
   }
 
   async function encrypt(
-    messages: Array<{ role: string; content: string }>,
+    messages: E2EEMessage[],
     session: E2EESession
   ): Promise<EncryptedPayload> {
     const encryptedMessages = await Promise.all(
-      messages.map(async (msg) => ({
-        role: msg.role,
-        content: await encryptMessage(
-          session.aesKey,
-          session.publicKey,
-          msg.content
-        ),
-      }))
+      messages.map((msg) => encryptOne(msg, session))
     );
 
     return {
@@ -137,7 +185,7 @@ export function createVeniceE2EE(options: VeniceE2EEOptions) {
   async function* decryptStream(
     body: ReadableStream<Uint8Array>,
     session: E2EESession
-  ): AsyncGenerator<string> {
+  ): AsyncGenerator<DecryptedStreamEvent> {
     yield* decryptSSEStream(body, session.privateKey);
   }
 
@@ -161,7 +209,17 @@ export function isE2EEModel(modelId: string): boolean {
   return modelId.startsWith('e2ee-');
 }
 
-export type { VeniceE2EEOptions, E2EESession, EncryptedPayload, DcapVerifier, DcapVerifyResult } from './types.js';
+export type {
+  VeniceE2EEOptions,
+  E2EESession,
+  E2EEMessage,
+  EncryptedMessage,
+  EncryptedPayload,
+  ToolCall,
+  DecryptedStreamEvent,
+  DcapVerifier,
+  DcapVerifyResult,
+} from './types.js';
 export type { AttestationResponse, AttestationResult, ServerVerification } from './attestation.js';
 export { verifyAttestation, deriveEthAddress } from './attestation.js';
 export {
