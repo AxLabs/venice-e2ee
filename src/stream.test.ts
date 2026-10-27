@@ -5,6 +5,18 @@ import {
   encryptMessage,
 } from './crypto.js';
 import { decryptSSEStream } from './stream.js';
+import type { DecryptedStreamEvent } from './types.js';
+
+async function collectEvents(
+  stream: ReadableStream<Uint8Array>,
+  privateKey: Uint8Array
+): Promise<DecryptedStreamEvent[]> {
+  const events: DecryptedStreamEvent[] = [];
+  for await (const event of decryptSSEStream(stream, privateKey)) {
+    events.push(event);
+  }
+  return events;
+}
 
 function createSSEStream(events: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -58,12 +70,9 @@ describe('decryptSSEStream', () => {
     });
 
     const stream = createSSEStream([sseEvent, '[DONE]']);
-    const chunks: string[] = [];
-    for await (const chunk of decryptSSEStream(stream, client.privateKey)) {
-      chunks.push(chunk);
-    }
+    const events = await collectEvents(stream, client.privateKey);
 
-    expect(chunks).toEqual(['Hello!']);
+    expect(events).toEqual([{ kind: 'content', content: 'Hello!' }]);
   });
 
   it('decrypts multiple chunks with per-chunk ephemeral keys', async () => {
@@ -80,12 +89,9 @@ describe('decryptSSEStream', () => {
     events.push('[DONE]');
 
     const stream = createSSEStream(events);
-    const chunks: string[] = [];
-    for await (const chunk of decryptSSEStream(stream, client.privateKey)) {
-      chunks.push(chunk);
-    }
+    const decoded = await collectEvents(stream, client.privateKey);
 
-    expect(chunks).toEqual(plaintexts);
+    expect(decoded).toEqual(plaintexts.map((content) => ({ kind: 'content', content })));
   });
 
   it('handles chunked delivery (split across reads)', async () => {
@@ -98,12 +104,9 @@ describe('decryptSSEStream', () => {
     ];
 
     const stream = createChunkedSSEStream(events);
-    const chunks: string[] = [];
-    for await (const chunk of decryptSSEStream(stream, client.privateKey)) {
-      chunks.push(chunk);
-    }
+    const decoded = await collectEvents(stream, client.privateKey);
 
-    expect(chunks).toEqual(['streamed']);
+    expect(decoded).toEqual([{ kind: 'content', content: 'streamed' }]);
   });
 
   it('passes through plaintext content (whitespace tokens)', async () => {
@@ -116,12 +119,12 @@ describe('decryptSSEStream', () => {
     ];
 
     const stream = createSSEStream(events);
-    const chunks: string[] = [];
-    for await (const chunk of decryptSSEStream(stream, client.privateKey)) {
-      chunks.push(chunk);
-    }
+    const decoded = await collectEvents(stream, client.privateKey);
 
-    expect(chunks).toEqual([' ', '\n']);
+    expect(decoded).toEqual([
+      { kind: 'content', content: ' ' },
+      { kind: 'content', content: '\n' },
+    ]);
   });
 
   it('skips events without content', async () => {
@@ -136,21 +139,93 @@ describe('decryptSSEStream', () => {
     ];
 
     const stream = createSSEStream(events);
-    const chunks: string[] = [];
-    for await (const chunk of decryptSSEStream(stream, client.privateKey)) {
-      chunks.push(chunk);
-    }
+    const decoded = await collectEvents(stream, client.privateKey);
 
-    expect(chunks).toEqual(['data']);
+    expect(decoded).toEqual([{ kind: 'content', content: 'data' }]);
   });
 
   it('handles empty stream', async () => {
     const client = generateKeypair();
     const stream = createSSEStream(['[DONE]']);
-    const chunks: string[] = [];
-    for await (const chunk of decryptSSEStream(stream, client.privateKey)) {
-      chunks.push(chunk);
-    }
-    expect(chunks).toEqual([]);
+    const decoded = await collectEvents(stream, client.privateKey);
+    expect(decoded).toEqual([]);
+  });
+
+  it('yields tool-call deltas unchanged, then the finish reason', async () => {
+    const client = generateKeypair();
+    const cipherHex = await encryptForStream('Checking.', client.privateKey, client.pubKeyHex);
+    const firstCall = {
+      index: 0,
+      id: 'call_weather',
+      type: 'function',
+      function: { name: 'get_weather', arguments: '' },
+    };
+    const argumentDelta = {
+      index: 0,
+      function: { arguments: '{"city":"Paris"}' },
+    };
+
+    const events = [
+      JSON.stringify({
+        choices: [{ delta: { content: cipherHex }, finish_reason: null }],
+      }),
+      JSON.stringify({
+        choices: [{ delta: { tool_calls: [firstCall] }, finish_reason: null }],
+      }),
+      JSON.stringify({
+        choices: [{ delta: { tool_calls: [argumentDelta] }, finish_reason: null }],
+      }),
+      JSON.stringify({
+        choices: [{ delta: {}, finish_reason: 'tool_calls' }],
+      }),
+      '[DONE]',
+    ];
+
+    const decoded = await collectEvents(createSSEStream(events), client.privateKey);
+
+    expect(decoded).toEqual([
+      { kind: 'content', content: 'Checking.' },
+      { kind: 'tool_calls', tool_calls: [firstCall] },
+      { kind: 'tool_calls', tool_calls: [argumentDelta] },
+      { kind: 'finish', finish_reason: 'tool_calls' },
+    ]);
+  });
+
+  it('keeps content, tool calls, and finish_reason from one SSE event in that order', async () => {
+    const client = generateKeypair();
+    const call = {
+      index: 0,
+      id: 'call_1',
+      type: 'function',
+      function: { name: 'lookup', arguments: '{}' },
+    };
+    const sseEvent = JSON.stringify({
+      choices: [
+        {
+          delta: { content: ' ', tool_calls: [call] },
+          finish_reason: 'length',
+        },
+      ],
+    });
+
+    const decoded = await collectEvents(createSSEStream([sseEvent, '[DONE]']), client.privateKey);
+
+    expect(decoded).toEqual([
+      { kind: 'content', content: ' ' },
+      { kind: 'tool_calls', tool_calls: [call] },
+      { kind: 'finish', finish_reason: 'length' },
+    ]);
+  });
+
+  it('does not treat a null finish_reason as a terminal event', async () => {
+    const client = generateKeypair();
+    const events = [
+      JSON.stringify({ choices: [{ delta: {}, finish_reason: null }] }),
+      JSON.stringify({ choices: [{ finish_reason: 'stop' }] }),
+      '[DONE]',
+    ];
+
+    const decoded = await collectEvents(createSSEStream(events), client.privateKey);
+    expect(decoded).toEqual([{ kind: 'finish', finish_reason: 'stop' }]);
   });
 });

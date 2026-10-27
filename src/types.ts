@@ -43,8 +43,55 @@ export interface E2EESession {
   attestation?: import('./attestation.js').AttestationResult;
 }
 
+/**
+ * OpenAI tool call, either a streaming delta or a completed call on an
+ * assistant message. Venice's enclave reads these fields as JSON, so they
+ * stay plaintext; they are not part of the encrypted `content` channel.
+ */
+export interface ToolCall {
+  index?: number;
+  id?: string;
+  type?: string;
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+}
+
+/**
+ * A chat message passed to `encrypt`.
+ *
+ * `user` and `system` content must be ciphertext. Assistant and `tool`
+ * messages keep `tool_calls`, `tool_call_id`, and `name`. Non-empty `content`
+ * is encrypted for every role, including tool-result bodies. `null` stays
+ * `null`. An empty string is left empty for every role except `user` and
+ * `system` — encrypting it would make the TEE treat a tool-only turn as text.
+ */
+export interface E2EEMessage {
+  role: string;
+  content?: string | null;
+  name?: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCall[];
+}
+
+/** Message shape sent to Venice after `encrypt`. */
+export interface EncryptedMessage {
+  role: string;
+  content: string | null;
+  name?: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCall[];
+}
+
 export interface EncryptedPayload {
-  encryptedMessages: Array<{ role: string; content: string }>;
+  encryptedMessages: EncryptedMessage[];
   headers: Record<string, string>;
   veniceParameters: { enable_e2ee: true };
 }
+
+/** One decoded piece of a Venice chat-completions SSE choice, in upstream order. */
+export type DecryptedStreamEvent =
+  | { kind: 'content'; content: string }
+  | { kind: 'tool_calls'; tool_calls: ToolCall[] }
+  | { kind: 'finish'; finish_reason: string };

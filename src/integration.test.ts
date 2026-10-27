@@ -54,8 +54,19 @@ describe.skipIf(!API_KEY)('Venice E2EE integration', () => {
 
     // Decrypt streaming response
     let fullText = '';
-    for await (const chunk of e2ee.decryptStream(res.body!, session)) {
-      fullText += chunk;
+    for await (const event of e2ee.decryptStream(res.body!, session)) {
+      switch (event.kind) {
+        case 'content':
+          fullText += event.content;
+          break;
+        case 'tool_calls':
+        case 'finish':
+          break;
+        default: {
+          const unexpected: never = event;
+          throw new Error(`Unhandled stream event: ${JSON.stringify(unexpected)}`);
+        }
+      }
     }
 
     console.log('Decrypted response:', fullText);

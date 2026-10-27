@@ -55,9 +55,10 @@ const response = await fetch('https://api.venice.ai/api/v1/chat/completions', {
   }),
 });
 
-// Decrypt streaming response
-for await (const chunk of e2ee.decryptStream(response.body, session)) {
-  process.stdout.write(chunk);
+// Decrypt streaming response. Tool-call deltas and finish_reason are
+// separate events; only `content` is ciphertext.
+for await (const event of e2ee.decryptStream(response.body, session)) {
+  if (event.kind === 'content') process.stdout.write(event.content);
 }
 ```
 
@@ -78,9 +79,9 @@ Creates an E2EE instance with session caching and attestation verification.
 Returns an object with:
 
 - **`createSession(modelId)`** — Generates ephemeral keypair, fetches TEE attestation, verifies the TDX quote, derives AES key. Returns an `E2EESession` with attestation results. Throws if verification fails. Sessions are cached per model with a 30-minute TTL.
-- **`encrypt(messages, session)`** — Encrypts an array of `{role, content}` messages. Returns `{ encryptedMessages, headers, veniceParameters }`.
+- **`encrypt(messages, session)`** — Encrypts message `content`. `user` and `system` content is always ciphertext. Non-empty assistant and `tool` content (including tool results) is encrypted too. `tool_calls`, `tool_call_id`, and `name` are copied through in the clear, and `content: null` stays `null`. Returns `{ encryptedMessages, headers, veniceParameters }`.
 - **`decryptChunk(hexChunk, session)`** — Decrypts a single response chunk (hex-encoded ciphertext with embedded server ephemeral key).
-- **`decryptStream(body, session)`** — Async generator that parses an SSE stream and yields decrypted text chunks. Handles per-chunk ephemeral keys, plaintext passthrough, and `[DONE]` sentinel.
+- **`decryptStream(body, session)`** — Async generator that parses an SSE stream and yields structured events: `{ kind: 'content', content }` (decrypted), `{ kind: 'tool_calls', tool_calls }` (unchanged), and `{ kind: 'finish', finish_reason }`. Handles per-chunk ephemeral keys, plaintext passthrough, and `[DONE]` sentinel.
 - **`clearSession()`** — Zeroizes the private key and clears the cached session.
 
 ## Attestation verification

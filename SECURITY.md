@@ -42,5 +42,8 @@ guarantees it does — and does not — provide:
   measurement (MRTD/RTMR). This is planned future work.
 - **Plaintext passthrough.** Short, non-hex stream chunks (e.g. whitespace
   tokens) are surfaced as-is and are not authenticated by AES-GCM.
+- **Tool-call metadata is plaintext.** Tool names, JSON schemas, call ids, and
+  arguments are not part of the encrypted `content` channel — the enclave chat
+  template reads them as JSON. Prompts and tool-result bodies are encrypted.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full verification design.
