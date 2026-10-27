@@ -1,6 +1,6 @@
 {
   "name": "@axlabs/venice-e2ee",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "End-to-end encryption for Venice AI's TEE-backed inference (ECDH secp256k1 + HKDF-SHA256 + AES-256-GCM)",
   "type": "module",
   "main": "dist/index.js",
